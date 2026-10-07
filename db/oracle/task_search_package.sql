@@ -42,6 +42,10 @@ CREATE OR REPLACE PACKAGE BODY task_search_pkg AS
         v_term   VARCHAR2(257);
         v_offset NUMBER;
     BEGIN
+        IF p_page < 1 OR p_page_size < 1 THEN
+            RAISE_APPLICATION_ERROR(-20001, 'p_page and p_page_size must be >= 1');
+        END IF;
+
         v_term   := '%' || LOWER(NVL(p_search_term, '')) || '%';
         v_offset := (p_page - 1) * p_page_size;
 
@@ -50,8 +54,7 @@ CREATE OR REPLACE PACKAGE BODY task_search_pkg AS
           INTO p_total_count
           FROM tasks
          WHERE archived = 0
-           AND LOWER(title) LIKE v_term
-            OR LOWER(description) LIKE v_term
+           AND (LOWER(title) LIKE v_term OR LOWER(description) LIKE v_term)
            AND (p_status IS NULL OR status = p_status);
 
         -- Paginated results using ROWNUM (pre-12c pattern)
@@ -64,10 +67,9 @@ CREATE OR REPLACE PACKAGE BODY task_search_pkg AS
                                assignee, created_at
                           FROM tasks
                          WHERE archived = 0
-                           AND LOWER(title) LIKE v_term
-                            OR LOWER(description) LIKE v_term
+                           AND (LOWER(title) LIKE v_term OR LOWER(description) LIKE v_term)
                            AND (p_status IS NULL OR status = p_status)
-                         ORDER BY created_at DESC
+                         ORDER BY created_at DESC, id DESC
                     ) t
                    WHERE ROWNUM <= v_offset + p_page_size
               )
